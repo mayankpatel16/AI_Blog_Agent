@@ -125,8 +125,8 @@ def to_html(post_title, sections, meta=None, seo=None):
     h1 {{ font-size: 2rem; color: var(--text); margin: 0 0 24px; line-height: 1.3; border-bottom: 2px solid var(--accent-light); padding-bottom: 16px; }}
     h2 {{ font-size: 1.4rem; color: var(--accent); margin: 36px 0 14px; }}
     h3 {{ font-size: 1.15rem; color: var(--text); margin: 24px 0 10px; }}
-    p {{ margin: 0 0 14px; color: var(--text-secondary); }}
-    strong {{ color: var(--text); font-weight: 600; }}
+    # p {{ margin: 0 0 14px; color: var(--text-secondary); }}
+     strong {{ color: var(--text); font-weight: 600; }}
 
     /* Tables */
     .table-wrap {{ overflow-x: auto; margin: 20px 0; border-radius: 8px; border: 1px solid var(--border); }}

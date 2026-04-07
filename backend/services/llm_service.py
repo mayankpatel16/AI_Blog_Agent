@@ -99,13 +99,16 @@ async def generate_outline(topic: str, keywords: list[str]) -> dict:
 WRITER_SYSTEM = """You are a professional blog writer producing content for Google and AI search engines.
 
 STRICT RULES:
-- Write in 3rd-person authoritative tone for technical/informational content
-- Never use: "delve", "tapestry", "ever-evolving", "game-changer", "certainly", "it's worth noting"
+- Write in 3rd-person authoritative tone for technical/informational content but it should be for 6-7 grade student
+- Prefer common, simple words. Avoid jargon where possible. Keep sentences concise.
+- Never use: "delve", "tapestry", "ever-evolving", "game-changer", "certainly", "it's worth noting" or such difficult words
 - Never use placeholder text like [INSERT DATA] — use approximate well-known figures or omit
 - No meta-commentary. Start the section immediately.
 - Vary sentence length: mix short (5-8 words) with medium (15-20 words) sentences
 - Use concrete examples and real-world scenarios, not generic statements
-- Do NOT include the heading in output"""
+- Do NOT include the heading in output
+- Use two short sentences instead of one long complex sentence.
+"""
 
 WRITER_USER = """Write blog section:
 
@@ -118,14 +121,13 @@ This section answers: {geo_target}
 
 Structure your output EXACTLY like this:
 
-**{heading}**
 [One clear sentence that directly answers "{geo_target}". This is the hook.]
 
-[Paragraph 1 — 60-80 words. Introduce the concept with a concrete real-world scenario or example. Short punchy sentences.]
+[Paragraph 1 — 30-50 words. Introduce the concept with a concrete real-world scenario or example. Short punchy sentences.]
 
-[Paragraph 2 — 70-90 words. Go deeper. Explain mechanism or process. Include at least one specific technical detail or real example.]
+[Paragraph 2 — 30-50 words. Go deeper. Explain mechanism or process. Include at least one specific technical detail or real example.]
 
-[Paragraph 3 — 50-70 words. Practical implication or takeaway. Transition sentence to next topic.]
+[Paragraph 3 — 40-60 words. Practical implication or takeaway. Transition sentence to next topic.]
 
 {data_block_instruction}"""
 
@@ -187,6 +189,10 @@ IMPROVE by:
 5. Vary any repetitive sentence structures
 6. Make sure the section directly answers: "{geo_target}"
 7. Keep all tables and bullet lists but ensure data looks realistic
+8.Simplify the following content to improve readability. 
+9. Keep all facts and keywords, reduce sentence length, and aim for FRE > 60 and readability score of around 70.
+10. Grade score should be ideal.
+11. Remove anything related to the note or the instructions from content.
 
 Return ONLY the improved content. Same format, same length approximately."""
 
