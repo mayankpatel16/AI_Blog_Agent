@@ -119,6 +119,7 @@ This section answers: {geo_target}
 
 Structure your output EXACTLY like this:
 
+<<<<<<< HEAD
 **{heading}**
 [One clear sentence that directly answers "{geo_target}". This is the hook.]
 
@@ -127,6 +128,15 @@ Structure your output EXACTLY like this:
 [Paragraph 2 — 70-90 words. Go deeper. Explain mechanism or process. Include at least one specific technical detail or real example.]
 
 [Paragraph 3 — 50-70 words. Practical implication or takeaway. Transition sentence to next topic.]
+=======
+[One clear sentence that directly answers "{geo_target}". This is the hook.]
+
+[Paragraph 1 — 30-50 words. Introduce the concept with a concrete real-world scenario or example. Short punchy sentences.]
+
+[Paragraph 2 — 30-50 words. Go deeper. Explain mechanism or process. Include at least one specific technical detail or real example.]
+
+[Paragraph 3 — 40-60 words. Practical implication or takeaway. Transition sentence to next topic.]
+>>>>>>> origin/main
 
 {data_block_instruction}"""
 
@@ -183,10 +193,22 @@ CONTENT TO REVIEW:
 IMPROVE by:
 1. Remove any placeholder text like [INSERT DATA] — replace with realistic approximate figures if known, or rewrite the sentence without data
 2. Replace robotic phrases ("From a technical standpoint", "Industry data shows") with natural alternatives
+<<<<<<< HEAD
 3. Ensure keywords appear naturally 2-3 times
 4. Vary any repetitive sentence structures
 5. Make sure the section directly answers: "{geo_target}"
 6. Keep all tables and bullet lists but ensure data looks realistic
+=======
+3. Ensure keywords appear naturally 2-4 times and at least once in the first or last paragraph
+4. If the section heading is a question, answer it explicitly in the first paragraph
+5. Vary any repetitive sentence structures
+6. Make sure the section directly answers: "{geo_target}"
+7. Keep all tables and bullet lists but ensure data looks realistic
+8.Simplify the following content to improve readability. 
+9. Keep all facts and keywords, reduce sentence length, and aim for FRE > 60 and readability score of around 70.
+10. Grade score should be ideal.
+11. Remove anything related to the note or the instructions from content.
+>>>>>>> origin/main
 
 Return ONLY the improved content. Same format, same length approximately."""
 
