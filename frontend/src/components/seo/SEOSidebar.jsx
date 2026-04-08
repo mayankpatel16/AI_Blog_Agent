@@ -187,7 +187,7 @@ import { RefreshCw, Tag, Loader2, ChevronDown, ChevronUp, Copy, Link2, AlertTria
 import toast from 'react-hot-toast'
 import ScoreRing from './ScoreRing'
 import { fleschLabel, scoreColour } from '../../utils/helpers'
-import { runSEOAnalysis, generateMeta } from '../../utils/api'
+import { runSEOAnalysis, generateMeta, generateSection } from '../../utils/api'
 
 function Row({ label, value, colour, sub }) {
   return (
@@ -195,7 +195,7 @@ function Row({ label, value, colour, sub }) {
       <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
       <div className="text-right">
         <span className={`text-sm font-semibold ${colour || 'text-gray-700 dark:text-gray-300'}`}>{value}</span>
-        {sub && <span className="text-xs text-gray-400 ml-1">{sub}</span>}
+        {sub && <span className="text-xs text-gray-400 ml-1"> {sub}</span>}
       </div>
     </div>
   )
@@ -246,15 +246,17 @@ function formatReadTime(readingTimeMinutes, wordCount = 0) {
   return '—'
 }
 
-export default function SEOSidebar({ postId, seo, meta, onRefresh, ungenCount = 0, postWordCount = 0 }) {
+export default function SEOSidebar({ postId, seo, meta, onRefresh, ungenCount = 0, postWordCount = 0, sections = [] }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [genMeta, setGenMeta] = useState(false)
+  const [improving, setImproving] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(null)
 
   const allGenerated = ungenCount === 0
   const readabilityValue = formatReadability(seo?.flesch_reading_ease)
   const gradeValue = formatGradeLevel(seo?.flesch_kincaid_grade)
-  const readTimeValue = formatReadTime(seo?.reading_time_minutes, postWordCount)
-  const contentLengthValue = postWordCount > 0 ? `${postWordCount.toLocaleString()} words` : '—'
+  const readTimeValue = formatReadTime(seo?.reading_time_minutes, seo?.word_count ?? postWordCount)
+  const contentLengthValue = (seo?.word_count ?? postWordCount) > 0 ? `${(seo?.word_count ?? postWordCount).toLocaleString()} words` : '—'
 
   const handleAnalyze = async () => {
     if (!allGenerated) {
@@ -292,6 +294,54 @@ export default function SEOSidebar({ postId, seo, meta, onRefresh, ungenCount = 
 
   const copy = (t) => { navigator.clipboard.writeText(t); toast.success('Copied!') }
   const flesch = seo ? fleschLabel(seo.flesch_reading_ease) : null
+
+  // Build suggestions based on SEO scores
+  const scoreSuggestions = []
+  if (seo) {
+    if (seo.flesch_reading_ease < 70) {
+      scoreSuggestions.push({
+        key: 'readability',
+        label: 'Simplify language to raise readability',
+        instruction: 'Rewrite each section with shorter sentences, clearer flow, and more natural examples.',
+      })
+    }
+    if (seo.flesch_kincaid_grade > 8) {
+      scoreSuggestions.push({
+        key: 'grade',
+        label: 'Adjust writing for grade 6-8',
+        instruction: 'Rewrite each section so it reads at grade 6-8 with simpler wording, tighter sentence structure, and richer examples.',
+      })
+    }
+  }
+
+  const sectionTargets = sections.filter(s => s.is_generated && s.content)
+
+  const handleImproveSections = async (instruction, key) => {
+    if (!allGenerated) {
+      toast.error(`Generate all ${ungenCount} remaining section${ungenCount > 1 ? 's' : ''} first`)
+      return
+    }
+    if (!sectionTargets.length) {
+      toast.error('No generated sections available to improve yet.')
+      return
+    }
+
+    setActiveSuggestion(key)
+    setImproving(true)
+    try {
+      for (const section of sectionTargets) {
+        await generateSection({ section_id: section.id, extra_instructions: instruction })
+      }
+      await runSEOAnalysis(postId)
+      await onRefresh()
+      toast.success('Content improved and SEO refreshed')
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || 'Improvement failed')
+    } finally {
+      setImproving(false)
+      setActiveSuggestion(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -346,6 +396,27 @@ export default function SEOSidebar({ postId, seo, meta, onRefresh, ungenCount = 
         <Row label="Content Length" value={contentLengthValue} />
         <Row label="Heading Score" value={seo ? `${seo.heading_hierarchy_score}/100` : '—'} colour={scoreColour(seo?.heading_hierarchy_score)} />
       </div>
+
+      {scoreSuggestions.length > 0 && (
+        <Section title="Quick Writing Fixes" icon={Tag} iconClass="text-violet-500" defaultOpen={true}>
+          <div className="space-y-2">
+            {scoreSuggestions.map(({ key, label, instruction }) => (
+              <button
+                key={key}
+                onClick={() => handleImproveSections(instruction, key)}
+                disabled={improving || activeSuggestion === key}
+                className="w-full text-left rounded-lg border border-gray-200 dark:border-gray-800 p-3 bg-white dark:bg-gray-900 hover:bg-violet-50 dark:hover:bg-violet-950 text-xs text-gray-700 dark:text-gray-200"
+              >
+                <div className="font-semibold mb-1">{label}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Click to rewrite sections with a simpler, easier style.</div>
+              </button>
+            ))}
+            {improving && (
+              <p className="text-xs text-gray-500">Improving writing… this may take a moment.</p>
+            )}
+          </div>
+        </Section>
+      )}
 
       {/* Keyword Density */}
       <Section title="Keyword Density" icon={BarChart2} defaultOpen={true}>

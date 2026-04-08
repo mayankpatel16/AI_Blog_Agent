@@ -121,7 +121,7 @@ export default function LoginPage() {
               Continue as Guest
             </button>
             <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-1.5">
-              Generate blogs without signup. SEO, history, and saving stay limited in guest mode.
+              Generate blogs without signup. SEO history and quick fix stay limited in guest mode.
             </p>
           </div>
         </div>

@@ -153,7 +153,6 @@ def to_html(post_title, sections, meta=None, seo=None):
       </div>
       <div class="doc-meta">
         <div>Generated {datetime.utcnow().strftime("%B %d, %Y")}</div>
-        <div>Read time: {read_time} min</div>
         <div class="seo-pill">SEO Score: {seo_score}/100</div>
       </div>
     </div>

@@ -503,7 +503,7 @@ def score_keyword_density(densities: dict) -> float:
     if not densities:
         return 0.0
 
-    ideal = sum(1 for d in densities.values() if 0.3 <= d <= 3.0)
+    ideal = sum(1 for d in densities.values() if 0.3 <= d <= 2.5)
     low   = sum(1 for d in densities.values() if 0.1 <= d < 0.3)
     score = (ideal * 100 + low * 40) / len(densities)
     return round(min(100.0, score), 1)
@@ -523,8 +523,8 @@ def validate_heading_hierarchy(sections: list[dict], has_separate_title: bool = 
 
     expected_start = 1 if has_separate_title else 2
 
-    if levels[0] != expected_start:
-        issues.append(f"⚠ Post should start with an H{expected_start} heading (found H{levels[0]})")
+    # if levels[0] != expected_start:
+    #     issues.append(f"⚠ Post should start with an H{expected_start} heading (found H{levels[0]})")
 
     if not has_separate_title:
         h1_count = levels.count(1)
@@ -564,9 +564,9 @@ def compute_overall_seo_score(
     else:
         readability_score = max(60, 100 - delta * 2)
 
-    if 1100 <= word_count <= 2000:
+    if 700 <= word_count <= 2000:
         wc_score = 100
-    elif 800 <= word_count < 1100:
+    elif 400 <= word_count < 700:
         wc_score = 80
     elif 2000 < word_count <= 3000:
         wc_score = 85

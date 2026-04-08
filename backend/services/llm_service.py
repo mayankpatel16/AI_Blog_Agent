@@ -5,7 +5,9 @@ Agent 1 (Planner):   Generates structured outline with GEO targets
 Agent 2 (Writer):    Writes each section with BLUF + varied structure
 Agent 3 (Reviewer):  Checks content vs SEO rules, returns improved version
 """
-import json, re, httpx
+import json
+import re
+import httpx
 from config import get_settings
 
 settings = get_settings()
@@ -55,7 +57,8 @@ def _extract_json(text: str) -> dict | list:
 # AGENT 1 — PLANNER
 # ════════════════════════════════════════════════════════
 
-PLANNER_SYSTEM = """You are a Lead SEO Content Planner. Output ONLY strict JSON. No explanation. No markdown fences. Start immediately with {"""
+PLANNER_SYSTEM = """You are a Lead SEO Content Planner. 
+Output ONLY strict JSON. No explanation. No markdown fences. Start immediately with {"""
 
 PLANNER_USER = """Plan a complete blog post for:
 
@@ -81,10 +84,12 @@ Return ONLY this JSON:
 }}
 
 Strict rules:
-- Exactly ONE H1 (intro section), four to six H2s, optionally one to two H3s
+- Exactly ONE H1 (intro), four to six H2s, optionally one to two H3s
 - Each heading must match a real Google search query
-- format choices: Narrative, BLUF+Narrative, List, Table"""
-
+- Each section must clearly answer a specific user question (geo_target)
+- Avoid vague or generic headings
+- format choices: Narrative, BLUF+Narrative
+"""
 
 async def generate_outline(topic: str, keywords: list[str]) -> dict:
     kw_str = ", ".join(keywords) if keywords else "none"
@@ -99,15 +104,31 @@ async def generate_outline(topic: str, keywords: list[str]) -> dict:
 WRITER_SYSTEM = """You are a professional blog writer producing content for Google and AI search engines.
 
 STRICT RULES:
-- Write in 3rd-person authoritative tone for technical/informational content but it should be for 6-7 grade student
-- Prefer common, simple words. Avoid jargon where possible. Keep sentences concise.
-- Never use: "delve", "tapestry", "ever-evolving", "game-changer", "certainly", "it's worth noting" or such difficult words
-- Never use placeholder text like [INSERT DATA] — use approximate well-known figures or omit
-- No meta-commentary. Start the section immediately.
-- Vary sentence length: mix short (5-8 words) with medium (15-20 words) sentences
-- Use concrete examples and real-world scenarios, not generic statements
+- STRICTLY DO NOT repeat or include the section heading in the generated text.
+- The output must start immediately with the content answering the question.
+- Write for a general audience (grade 6–8 level)
+- Use simple, common words. Avoid jargon and complex terms
+- Use clear, natural, human-like language
+- Prefer active voice
+- Keep sentences mostly short (8–12 words), vary length naturally
+- Break very complex ideas into smaller sentences, but add examples
+- Use concrete examples and simple analogies to explain points
+- Avoid repetitive phrasing; add relevant details simply and clearly
+- Keep paragraphs short (2–3 sentences max)
+- Ensure smooth flow and variation in sentence structure
+- Use simple transition words (and, but, so) for smooth flow
+- Use simple sentence structures: subject + verb + object
+- Avoid all words with more than 3 syllables; prefer simple common words
+- Never use placeholder text like [INSERT DATA]
+- Avoid robotic phrases like "From a technical standpoint", "Industry data shows"
 - Do NOT include the heading in output
-- Use two short sentences instead of one long complex sentence.
+- Start directly with content (no intro phrases like "Here is the section")
+- There should be approximate 1.3 syllable per word not more than that and don't use hard-to-read phrasing
+- avoid nested clauses
+CLARITY RULE:
+- Prefer clarity over detail
+- Write as if explaining to a 12-year-old
+- If a sentence feels long, split it into two
 """
 
 WRITER_USER = """Write blog section:
@@ -119,21 +140,33 @@ Keywords to use naturally: {keywords}
 This section answers: {geo_target}
 {extra}
 
+IMPORTANT: If there are additional focus instructions above, follow them EXACTLY and make significant changes to improve the content accordingly.
+
 Structure your output EXACTLY like this:
 
-[One clear sentence that directly answers "{geo_target}". This is the hook.]
+[One short sentence answering "{geo_target}".]
 
-[Paragraph 1 — 30-50 words. Introduce the concept with a concrete real-world scenario or example. Short punchy sentences.]
+[Paragraph 1: 2–3 sentences. Each sentence under 12 words.]
 
-[Paragraph 2 — 30-50 words. Go deeper. Explain mechanism or process. Include at least one specific technical detail or real example.]
+[Paragraph 2: 2–3 sentences. Each sentence under 12 words.]
 
-[Paragraph 3 — 40-60 words. Practical implication or takeaway. Transition sentence to next topic.]
+[Paragraph 3: 2–3 sentences. Each sentence under 12 words.]
 
-{data_block_instruction}"""
+[Paragraph 4: 2–3 sentences. Each sentence under 12 words.]
 
-DATA_BLOCK_TABLE = """End with a comparison or summary table (3-4 columns, 3-5 rows). Use real approximate data, not placeholders."""
-DATA_BLOCK_LIST = """End with a bulleted list of 4-5 specific, actionable points. Each point: one concrete action + brief reason why."""
-DATA_BLOCK_NONE = ""
+RULE:
+- Most sentences under 12 words; allow up to 15 words for flow
+
+RULES TO IMPROVE LENGTH AND READABILITY:
+- Aim for about 300-340 words per section
+- Write enough content so the full article totals at least 1200 words when all sections are combined, each section at least 300 words
+- Add relevant examples or brief explanations naturally
+- Keep language simple and clear, with varied sentence lengths
+- Use transition sentences for smooth flow
+"""
+
+DATA_BLOCK_TABLE = ""
+DATA_BLOCK_LIST = ""
 
 
 async def generate_section_content(
@@ -157,11 +190,18 @@ async def generate_section_content(
             keywords=kw_str, geo_target=geo_target, extra=extra,
             data_block_instruction=data_block,
         ),
-        temperature=0.7,
+        temperature=0.7,  # Reduced for better readability balance
     )
 
+    print(f"DEBUG: Raw writer output for {heading}: {raw[:200]}...")
+
     # Agent 3 — Reviewer: check and improve the content
-    reviewed = await _review_content(raw, heading, keywords, geo_target)
+    if extra_instructions:
+        # For quick fixes, use the writer output directly without reviewer to preserve the changes
+        reviewed = _strip_review_notes(raw)
+    else:
+        reviewed = await _review_content(raw, heading, keywords, geo_target)
+    print(f"DEBUG: Reviewed content for {heading}: {reviewed[:200]}...")
     return reviewed
 
 
@@ -169,8 +209,22 @@ async def generate_section_content(
 # AGENT 3 — SEO REVIEWER
 # ════════════════════════════════════════════════════════
 
-REVIEWER_SYSTEM = """You are an SEO Quality Reviewer. Your job is to improve written content.
-Return ONLY the improved content — no commentary, no "Here is the improved version", no explanation."""
+REVIEWER_SYSTEM = """You are an SEO Quality Reviewer.
+
+Your job is to improve readability, clarity, and SEO quality.
+Prefer words with fewer syllables and avoid words longer than 3 syllables when simpler alternatives exist.
+
+Focus on:
+- Making content easy to read for beginners
+- Using simple words and natural tone
+- Improving sentence flow and structure
+- Always reduce sentence length if possible
+- Prefer multiple short sentences over one long sentence
+
+Return ONLY the improved content.
+No explanations. No commentary.
+If you cannot improve the section without adding notes or lists, return the original content exactly.
+"""
 
 REVIEWER_USER = """Review and improve this blog section for SEO quality.
 
@@ -182,19 +236,56 @@ CONTENT TO REVIEW:
 {content}
 
 IMPROVE by:
-1. Remove any placeholder text like [INSERT DATA] — replace with realistic approximate figures if known, or rewrite the sentence without data
-2. Replace robotic phrases ("From a technical standpoint", "Industry data shows") with natural alternatives
-3. Ensure keywords appear naturally 2-4 times and at least once in the first or last paragraph
-4. If the section heading is a question, answer it explicitly in the first paragraph
-5. Vary any repetitive sentence structures
-6. Make sure the section directly answers: "{geo_target}"
-7. Keep all tables and bullet lists but ensure data looks realistic
-8.Simplify the following content to improve readability. 
-9. Keep all facts and keywords, reduce sentence length, and aim for FRE > 60 and readability score of around 70.
-10. Grade score should be ideal.
-11. Remove anything related to the note or the instructions from content.
+1. Remove placeholder text like [INSERT DATA]
+2. Replace robotic phrases with natural language
+3. Ensure keywords appear naturally 3-5 times, including in intro or conclusion
+4. If heading is a question, answer it clearly in the first sentence but don't write heading in section content ever.
+5. Vary sentence structure to avoid repetition
+6. Ensure the section clearly answers: "{geo_target}"
 
-Return ONLY the improved content. Same format, same length approximately."""
+READABILITY IMPROVEMENTS:
+7. Break long sentences into shorter ones
+8. Keep most sentences between 6–10 words
+9. Replace complex words with simpler alternatives
+10. Prefer simple sentence structure (subject + verb + object)
+11. Aim for Flesch Reading Ease 80–90
+12. Aim for grade level 6–8
+13. Preserve section length; do not make the section noticeably shorter than the input
+14. Remove any instructions, notes, or meta text from output
+15. Avoid passive voice, or starting sentence abnormally
+
+IMPORTANT:
+- If a sentence is longer than 12 words, split it when it hurts readability, but keep section length intact
+- Simpler is better than detailed
+- Avoid words with more than 3 syllables when simpler alternatives exist
+- Do not include any notes, analysis, checklists, or bullet lists in the output
+- Only return the final revised section text, with no headings or commentary
+
+Return ONLY the improved content.
+Keep same structure and similar length.
+"""
+
+
+def _strip_review_notes(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+    cleaned = text.strip()
+    if not cleaned:
+        return cleaned
+
+    if re.match(r'^(Note:|Notes:|[-*]\s|\d+\.)', cleaned):
+        parts = re.split(r'\n\s*\n', cleaned)
+        for part in parts:
+            part_strip = part.strip()
+            if not re.match(r'^(Note:|Notes:|[-*]\s|\d+\.)', part_strip):
+                return part_strip
+        lines = cleaned.splitlines()
+        while lines and re.match(r'^(Note:|Notes:|[-*]\s|\d+\.)', lines[0].strip()):
+            lines.pop(0)
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        return '\n'.join(lines).strip()
+    return cleaned
 
 
 async def _review_content(content: str, heading: str, keywords: list[str], geo_target: str) -> str:
@@ -209,7 +300,8 @@ async def _review_content(content: str, heading: str, keywords: list[str], geo_t
             ),
             temperature=0.4,
         )
-        return reviewed if len(reviewed) > 100 else content
+        cleaned = _strip_review_notes(reviewed)
+        return cleaned if len(cleaned) > 100 else content
     except Exception:
         return content  # Fall back to original if reviewer fails
 
